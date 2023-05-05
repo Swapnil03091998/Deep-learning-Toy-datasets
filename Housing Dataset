@@ -1,0 +1,59 @@
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+housing = fetch_california_housing()
+
+X_train_full, X_test, y_train_full, y_test = train_test_split(housing.data, housing.target)
+
+X_train, X_val, y_train, y_val = train_test_split(X_train_full, y_train_full)
+
+scaler = StandardScaler()
+
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.transform(X_val)
+X_test = scaler.transform(X_test)
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+#the wide and deep architecture gives MAE of 0.4 on test set
+input = layers.Input(shape=X_train.shape[1:])
+hidden1 = layers.Dense(30, activation='relu', kernel_regularizer=keras.regularizers.l2(0.01))(input)
+hidden2 = layers.Dense(30, activation='relu', kernel_regularizer=keras.regularizers.l2(0.01))(hidden1)
+concat = layers.Concatenate()([input, hidden2])
+output = layers.Dense(1)(concat)
+
+optimizer = keras.optimizers.SGD(lr=0.01, clipnorm=1.0)
+
+model = keras.models.Model(inputs=[input], outputs=[output])
+
+model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
+
+history = model.fit(X_train, y_train, epochs=100, batch_size=16, 
+                    validation_data=(X_val, y_val), 
+                    callbacks=[tf.keras.callbacks.EarlyStopping(patience=10)])
+
+# Evaluate the model
+loss, mae = model.evaluate(X_test, y_test)
+print('Test MAE:', mae)
+
+#this sequential model gives MAE of 0.39 on teST SET
+model = keras.Sequential([
+    layers.Input(shape=X_train.shape[1:]),
+    layers.Dense(30, activation='relu', kernel_regularizer=keras.regularizers.l2(0.01)),
+    layers.Dense(30, activation='relu', kernel_regularizer=keras.regularizers.l2(0.01)),
+    layers.Dense(1)
+])
+
+optimizer = keras.optimizers.SGD(lr=0.01, clipnorm=1.0)
+
+model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
+
+history = model.fit(X_train, y_train, epochs=100, batch_size=16, 
+                    validation_data=(X_val, y_val), 
+                    callbacks=[tf.keras.callbacks.EarlyStopping(patience=5)])
+
+loss, mae = model.evaluate(X_test, y_test)
+print('Test MAE:', mae)
