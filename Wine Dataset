@@ -1,0 +1,54 @@
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+import os
+from sklearn.datasets import load_wine
+
+X,y = load_wine(return_X_y=True, as_frame=True)
+
+scaler = StandardScaler()
+
+X = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+root_logdir = os.path.join(os.curdir, "my_logs")
+
+
+def get_run_logdir():
+    import time
+    run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S")
+    return os.path.join(root_logdir, run_id)
+
+run_logdir = get_run_logdir()
+
+tensorboard_cb = tf.keras.callbacks.TensorBoard(run_logdir)
+
+# Define the model
+model = Sequential([
+    Dense(64, input_shape=(13,), activation='relu'),
+    BatchNormalization(),
+    Dropout(0.2),
+    Dense(32, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.2),
+    Dense(16, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.2),
+    Dense(3, activation='softmax')
+])
+
+# Compile the model
+model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the model
+history = model.fit(X_train, y_train, epochs=100, batch_size=16, validation_data=(X_test, y_test), callbacks=[tf.keras.callbacks.EarlyStopping(patience=5),
+                                                                                                              tensorboard_cb])
+
+# Evaluate the model
+loss, accuracy = model.evaluate(X_test, y_test)
+print('Test accuracy:', accuracy)
